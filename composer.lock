@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "dea885c5892964bd4754deb58ffbce72",
+    "content-hash": "997785d6b03801dfd4c4f1605f5d43c2",
     "packages": [
         {
             "name": "fig/http-message-util",
@@ -956,16 +956,16 @@
         },
         {
             "name": "salesforce-mc/fuel-sdk-php",
-            "version": "v1.3.0",
+            "version": "v1.4.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/salesforce-marketingcloud/FuelSDK-PHP.git",
-                "reference": "a4443c1cfd799a06c829927cc0e00807d3162813"
+                "reference": "27895de944c1e64ccc09a36a5bdb1838d0b5c8aa"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/salesforce-marketingcloud/FuelSDK-PHP/zipball/a4443c1cfd799a06c829927cc0e00807d3162813",
-                "reference": "a4443c1cfd799a06c829927cc0e00807d3162813",
+                "url": "https://api.github.com/repos/salesforce-marketingcloud/FuelSDK-PHP/zipball/27895de944c1e64ccc09a36a5bdb1838d0b5c8aa",
+                "reference": "27895de944c1e64ccc09a36a5bdb1838d0b5c8aa",
                 "shasum": ""
             },
             "require": {
@@ -1004,9 +1004,9 @@
             ],
             "support": {
                 "issues": "https://github.com/salesforce-marketingcloud/FuelSDK-PHP/issues",
-                "source": "https://github.com/salesforce-marketingcloud/FuelSDK-PHP/tree/v1.3.0"
+                "source": "https://github.com/salesforce-marketingcloud/FuelSDK-PHP/tree/v1.4.0"
             },
-            "time": "2019-05-20T11:04:12+00:00"
+            "time": "2019-08-21T13:35:31+00:00"
         },
         {
             "name": "slim/psr7",

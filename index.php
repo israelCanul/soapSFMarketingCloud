@@ -12,6 +12,9 @@ use FuelSdk\ET_Subscriber;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerInterface;
 use Slim\Exception\HttpMethodNotAllowedException;
+use FuelSdk\ET_Email;
+use FuelSdk\ET_Asset;
+include "funcionesSF.php";
 
 $app = AppFactory::create();
 /**
@@ -49,11 +52,89 @@ $app->get('/', function (Request $request, Response $response, $args) {
         array("endpoint"=>"/publicationLists","description"=>"obtener la lista de publication lists","request" => array("method"=>"GET","Content-Type"=>"application/json")),
         array("endpoint"=>"/publicationLists","description"=>"cambiar el status de un subscriptor (Unsubscribe From All)","request" => array("method"=>"POST","Content-Type"=>"application/json","params" => array("subscriberKey"=>"subscriberKey [Type: string]","status"=>"Status [Type: string]"))),
         array("endpoint"=>"/publicationLists/{id}","description"=>"obtener una publication list en especifica","request" => array("method"=>"GET","Content-Type"=>"application/json")),
-        array("endpoint"=>"/publicationLists/{id}","description"=>"cambiar el status de un subscriptor en la lista especifica","request" => array("method"=>"POST","Content-Type"=>"application/json","params" => array("subscriberKey"=>"subscriberKey [Type: string]","status"=>"Status [Type: string]")))
+        array("endpoint"=>"/publicationLists/{id}","description"=>"cambiar el status de un subscriptor en la lista especifica","request" => array("method"=>"POST","Content-Type"=>"application/json","params" => array("subscriberKey"=>"subscriberKey [Type: string]","status"=>"Status [Type: string]"))),
+        array("endpoint"=>"/emails/sendMessage","description"=>"Send a Transactional Message","request" => array("method"=>"POST","Content-Type"=>"application/json","params" => array("messageKey [Type: string]"=>"JHGAJDA","keyDefinition [Type: string]"=>"APIHooktourEliteMessage","contactKey [Type: string]"=>"Unique identifier for a subscriber in Marketing Cloud [Example] icanul@royalresorts.com","to [Type: string]"=> "icanul@royalresorts.com","vars [Type: Object]"=>array("fname [example]"=> "iran","lname [example]"=> "canul","certificateID [example]"=> "CERTIFICATE","purchasedate [example]" => "5/12/2021 12:00:00 AM"))))
     );
     $payload = json_encode($methods);
     $response->getBody()->write($payload);        
     return $response->withHeader('Content-Type', 'application/json');
+});
+
+$app->group('/keyDefinitions', function (Group $group) {
+    $group->get('', function ($request, $response){
+        $page = "1";
+        if(isset($_GET['page'])){
+            $page = $_GET['page'];
+        }
+        $respuestaGet = getEmailDefinitions($page);
+        if(!isset($respuestaGet["error"])){
+            $response->getBody()->write($respuestaGet);        
+            return $response->withHeader('Content-Type', 'application/json');
+        }else{
+            $response->getBody()->write("[]");        
+            return $response->withHeader('Content-Type', 'application/json');
+        }
+    });
+    $group->post('', function ($request, $response){
+        $contents = json_decode(file_get_contents('php://input'), true);
+        $params = (array)$contents;
+
+        $respuestaGet = EmailDefinitions($params["definitionKey"], $params["name"], $params["customerKey"], $params["list"], $params["dataExtension"]);
+
+        if(!isset($respuestaGet["error"])){
+            $response->getBody()->write(var_dump($respuestaGet));        
+            return $response->withHeader('Content-Type', 'application/json');
+        }else{
+            $response->getBody()->write("[]");        
+            return $response->withHeader('Content-Type', 'application/json');
+        }
+
+    });
+});
+$app->group('/emails', function (Group $group) {
+    $group->post('/sendMessage', function ($request, $response){
+        $contents = json_decode(file_get_contents('php://input'), true);
+        $params = (array)$contents;
+        if(!isset($params["messageKey"]) && !isset($params["keyDefinition"]) && !isset($params["to"])){
+            $payload = json_encode(array("errorCode" => 0, "errorDescription" => "Parameters Missing"));
+            $response->getBody()->write($payload);        
+            return $response->withHeader('Content-Type', 'application/json');
+        }
+
+        $vars = array();
+        if(isset($params["vars"])){
+            foreach ($params["vars"] as $key => $value) {
+                $vars[$key] = $value;
+            }
+        }
+        $sendResponse = SendMessage(rand_string(30).$params["messageKey"],$params["keyDefinition"], $params["contactKey"],$params["to"], $vars);
+
+        if(!isset($sendResponse["error"])){
+            $response->getBody()->write(json_encode($sendResponse));        
+            return $response->withHeader('Content-Type', 'application/json');
+        }else{
+            $response->getBody()->write(json_encode($sendResponse));        
+            return $response->withHeader('Content-Type', 'application/json');
+        }        
+        // $response->getBody()->write(json_encode($vars));
+        // return $response->withHeader('Content-Type', 'application/json');
+        // //SendMessage(rand_string(30)."HJKL01", 'APIHooktourEliteMessage', $result[0]->Email, array("fname" => $result[0]->FName,"lname" => $result[0]->LName, "certificateID" => $result[0]->CertificateID, "purchasedate"=> date("m/d/y")));
+
+        
+    });
+
+});
+
+
+
+$app->group('/dtExtensions', function (Group $group) {
+    $group->get('/{key}', function ($request, $response){
+        $routeContext = RouteContext::fromRequest($request);
+        $route = $routeContext->getRoute();        
+        $listId = $route->getArgument('key');
+
+                
+    });
 });
 
 $app->group('/subscribers', function (Group $group) {
@@ -272,5 +353,7 @@ $app->group('/publicationLists', function (Group $group) {
         return $response->withHeader('Content-Type', 'application/json');
     });
 });
+
+
 
 $app->run();

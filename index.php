@@ -14,6 +14,10 @@ use Psr\Log\LoggerInterface;
 use Slim\Exception\HttpMethodNotAllowedException;
 use FuelSdk\ET_Email;
 use FuelSdk\ET_Asset;
+
+use FuelSdk\ET_DataExtension;
+use FuelSdk\ET_DataExtension_Row;
+
 include "funcionesSF.php";
 
 $app = AppFactory::create();
@@ -53,7 +57,9 @@ $app->get('/', function (Request $request, Response $response, $args) {
         array("endpoint"=>"/publicationLists","description"=>"cambiar el status de un subscriptor (Unsubscribe From All)","request" => array("method"=>"POST","Content-Type"=>"application/json","params" => array("subscriberKey"=>"subscriberKey [Type: string]","status"=>"Status [Type: string]"))),
         array("endpoint"=>"/publicationLists/{id}","description"=>"obtener una publication list en especifica","request" => array("method"=>"GET","Content-Type"=>"application/json")),
         array("endpoint"=>"/publicationLists/{id}","description"=>"cambiar el status de un subscriptor en la lista especifica","request" => array("method"=>"POST","Content-Type"=>"application/json","params" => array("subscriberKey"=>"subscriberKey [Type: string]","status"=>"Status [Type: string]"))),
-        array("endpoint"=>"/emails/sendMessage","description"=>"Send a Transactional Message","request" => array("method"=>"POST","Content-Type"=>"application/json","params" => array("messageKey [Type: string]"=>"JHGAJDA","keyDefinition [Type: string]"=>"APIHooktourEliteMessage","contactKey [Type: string]"=>"Unique identifier for a subscriber in Marketing Cloud [Example] icanul@royalresorts.com","to [Type: string]"=> "icanul@royalresorts.com","vars [Type: Object]"=>array("fname [example]"=> "iran","lname [example]"=> "canul","certificateID [example]"=> "CERTIFICATE","purchasedate [example]" => "5/12/2021 12:00:00 AM"))))
+        array("endpoint"=>"/emails/sendMessage","description"=>"Send a Transactional Message","request" => array("method"=>"POST","Content-Type"=>"application/json","params" => array("messageKey [Type: string]"=>"JHGAJDA","keyDefinition [Type: string]"=>"APIHooktourEliteMessage","contactKey [Type: string]"=>"Unique identifier for a subscriber in Marketing Cloud [Example] icanul@royalresorts.com","to [Type: string]"=> "icanul@royalresorts.com","vars [Type: Object]"=>array("fname [example]"=> "iran","lname [example]"=> "canul","certificateID [example]"=> "CERTIFICATE","purchasedate [example]" => "5/12/2021 12:00:00 AM")))),
+        array("endpoint"=>"/dtExtensions","description"=>"Obtener la lista de data extensions segun la cuenta","request" => array("method"=>"GET","Content-Type"=>"application/json")),
+        array("endpoint"=>"/dtExtensions/{customerKey}","description"=>"obtener la lista de rows de una DT segun los campos pasados","request" => array("method"=>"GET","Content-Type"=>"application/json"))
     );
     $payload = json_encode($methods);
     $response->getBody()->write($payload);        
@@ -95,6 +101,9 @@ $app->group('/emails', function (Group $group) {
     $group->post('/sendMessage', function ($request, $response){
         $contents = json_decode(file_get_contents('php://input'), true);
         $params = (array)$contents;
+        // $response->getBody()->write(var_dump($contents));        
+        // return $response->withHeader('Content-Type', 'application/json');
+        // exit(0);
         if(!isset($params["messageKey"]) && !isset($params["keyDefinition"]) && !isset($params["to"])){
             $payload = json_encode(array("errorCode" => 0, "errorDescription" => "Parameters Missing"));
             $response->getBody()->write($payload);        
@@ -128,12 +137,65 @@ $app->group('/emails', function (Group $group) {
 
 
 $app->group('/dtExtensions', function (Group $group) {
-    $group->get('/{key}', function ($request, $response){
-        $routeContext = RouteContext::fromRequest($request);
-        $route = $routeContext->getRoute();        
-        $listId = $route->getArgument('key');
+    $group->get('', function ($request, $response){
+        $name = $_GET["name"];       
+        $myclient = new ET_Client(true);
+        $DT = new ET_DataExtension();
+        $DT->authStub = $myclient;
+        if($name != null){
+            $DT->filter = array("Property"=>"Name", "SimpleOperator"=>"equals","Value"=>$name);
+        }        
+        $respuesta = $DT->get();
 
-                
+
+        if($respuesta->status == "true" || $respuesta->status == true){
+            $payload = json_encode($respuesta);
+            $response->getBody()->write($payload);        
+            return $response->withHeader('Content-Type', 'application/json');          
+        }else{
+            $payload = json_encode(array("errorCode" => -1, "errorDescription" => $respuesta->message));
+            $response->getBody()->write($payload);        
+            return $response->withHeader('Content-Type', 'application/json');
+        }
+
+    });
+    $group->get('/{customerkey}', function ($request, $response){
+        $routeContext = RouteContext::fromRequest($request);
+        $route = $routeContext->getRoute();
+        $cKey = $route->getArgument('customerkey');
+        $fields = $_GET["fields"];
+        if($cKey == null){
+            $payload = json_encode(array("errorCode" => -1, "data" => $cKey, "errorDescription" => "This Endpoint only works with a customer key valid"));        
+            $response->getBody()->write($payload);        
+            return $response->withHeader('Content-Type', 'application/json');      
+        }
+        if($fields == null){
+            $payload = json_encode(array("errorCode" => -1, "data" => $cKey, "errorDescription" => "The endpoint needs a list of fields to retrieve"));        
+            $response->getBody()->write($payload);        
+            return $response->withHeader('Content-Type', 'application/json');      
+        }
+
+        // $payload = json_encode(array("errorCode" => 0, "data" => explode(",", $fields), "errorDescription" => "Todo bien"));        
+        // $response->getBody()->write($payload);        
+        // return $response->withHeader('Content-Type', 'application/json');  
+
+        $myclient = new ET_Client(true);
+        $DT = new ET_DataExtension_Row();
+        $DT->authStub = $myclient;
+        $DT->props =  explode(",", $fields);
+        $DT->CustomerKey = $cKey;
+        $DT->filter = array("Property"=>"ConverterClassCode", "SimpleOperator"=>"equals","Value"=>"Spa");
+        $respuesta = $DT->get();
+
+        if($respuesta->status == "true" || $respuesta->status == true){
+            $payload = json_encode($respuesta);
+            $response->getBody()->write($payload);        
+            return $response->withHeader('Content-Type', 'application/json');             
+        }else{
+            $payload = json_encode(array("errorCode" => -1, "errorDescription" => $respuesta->message));
+            $response->getBody()->write($payload);        
+            return $response->withHeader('Content-Type', 'application/json'); 
+        }               
     });
 });
 

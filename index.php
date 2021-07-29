@@ -59,7 +59,7 @@ $app->get('/', function (Request $request, Response $response, $args) {
         array("endpoint"=>"/publicationLists/{id}","description"=>"cambiar el status de un subscriptor en la lista especifica","request" => array("method"=>"POST","Content-Type"=>"application/json","params" => array("subscriberKey"=>"subscriberKey [Type: string]","status"=>"Status [Type: string]"))),
         array("endpoint"=>"/emails/sendMessage","description"=>"Send a Transactional Message","request" => array("method"=>"POST","Content-Type"=>"application/json","params" => array("messageKey [Type: string]"=>"JHGAJDA","keyDefinition [Type: string]"=>"APIHooktourEliteMessage","contactKey [Type: string]"=>"Unique identifier for a subscriber in Marketing Cloud [Example] icanul@royalresorts.com","to [Type: string]"=> "icanul@royalresorts.com","vars [Type: Object]"=>array("fname [example]"=> "iran","lname [example]"=> "canul","certificateID [example]"=> "CERTIFICATE","purchasedate [example]" => "5/12/2021 12:00:00 AM")))),
         array("endpoint"=>"/dtExtensions","description"=>"Obtener la lista de data extensions segun la cuenta","request" => array("method"=>"GET","Content-Type"=>"application/json")),
-        array("endpoint"=>"/dtExtensions/{customerKey}","description"=>"obtener la lista de rows de una DT segun los campos pasados","request" => array("method"=>"GET","Content-Type"=>"application/json"))
+        array("endpoint"=>"/dtExtensions/{customerKey}","operaciones"=>"operaciones permitidas  'equals, IN' ","description"=>"obtener la lista de rows de una DT segun los campos pasados","request" => array("method"=>"GET","Content-Type"=>"application/json"))
     );
     $payload = json_encode($methods);
     $response->getBody()->write($payload);        
@@ -164,30 +164,46 @@ $app->group('/dtExtensions', function (Group $group) {
         $route = $routeContext->getRoute();
         $cKey = $route->getArgument('customerkey');
         $fields = $_GET["fields"];
+        $query = $_GET["q"];
         if($cKey == null){
             $payload = json_encode(array("errorCode" => -1, "data" => $cKey, "errorDescription" => "This Endpoint only works with a customer key valid"));        
             $response->getBody()->write($payload);        
             return $response->withHeader('Content-Type', 'application/json');      
         }
         if($fields == null){
-            $payload = json_encode(array("errorCode" => -1, "data" => $cKey, "errorDescription" => "The endpoint needs a list of fields to retrieve"));        
+            $payload = json_encode(array("errorCode" => -1, "data" => $cKey, "errorDescription" => "The endpoint needs a list of fields to retrieve", "type"=>"fields=<field1>,<field2>,...<field(n)>"));        
             $response->getBody()->write($payload);        
             return $response->withHeader('Content-Type', 'application/json');      
         }
-
-        // $payload = json_encode(array("errorCode" => 0, "data" => explode(",", $fields), "errorDescription" => "Todo bien"));        
-        // $response->getBody()->write($payload);        
-        // return $response->withHeader('Content-Type', 'application/json');  
-
         $myclient = new ET_Client(true);
         $DT = new ET_DataExtension_Row();
         $DT->authStub = $myclient;
         $DT->props =  explode(",", $fields);
         $DT->CustomerKey = $cKey;
-        $DT->filter = array("Property"=>"ConverterClassCode", "SimpleOperator"=>"equals","Value"=>"Spa");
+        if($query){
+            $query = explode(",", $query);
+            if(count($query) == 3){
+                if($query[1] != "equals" && $query[1] != "IN"){
+                    $payload = json_encode(array("errorCode" => -1, "CustomerKey" => $cKey, "errorDescription" => "Operation not allowed ".$query[1]));        
+                    $response->getBody()->write($payload);        
+                    return $response->withHeader('Content-Type', 'application/json');
+                }
+                $DT->filter = array("Property"=>$query[0], "SimpleOperator"=>$query[1],"Value"=>$query[2]);
+            }
+        }        
         $respuesta = $DT->get();
 
         if($respuesta->status == "true" || $respuesta->status == true){
+            $results = array();
+            foreach ($respuesta->results as $key => $value) {
+                $props = array();
+                foreach ($value->Properties->Property as $key1 => $value1) {
+                    $props[$value1->Name] =$value1->Value;
+                }
+                array_push($results, $props);                
+            }
+            $respuesta->fields = explode(",", $fields);
+            $respuesta->results = $results;                         
             $payload = json_encode($respuesta);
             $response->getBody()->write($payload);        
             return $response->withHeader('Content-Type', 'application/json');             

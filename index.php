@@ -59,7 +59,8 @@ $app->get('/', function (Request $request, Response $response, $args) {
         array("endpoint"=>"/publicationLists/{id}","description"=>"cambiar el status de un subscriptor en la lista especifica","request" => array("method"=>"POST","Content-Type"=>"application/json","params" => array("subscriberKey"=>"subscriberKey [Type: string]","status"=>"Status [Type: string]"))),
         array("endpoint"=>"/emails/sendMessage","description"=>"Send a Transactional Message","request" => array("method"=>"POST","Content-Type"=>"application/json","params" => array("messageKey [Type: string]"=>"JHGAJDA","keyDefinition [Type: string]"=>"APIHooktourEliteMessage","contactKey [Type: string]"=>"Unique identifier for a subscriber in Marketing Cloud [Example] icanul@royalresorts.com","to [Type: string]"=> "icanul@royalresorts.com","vars [Type: Object]"=>array("fname [example]"=> "iran","lname [example]"=> "canul","certificateID [example]"=> "CERTIFICATE","purchasedate [example]" => "5/12/2021 12:00:00 AM")))),
         array("endpoint"=>"/dtExtensions","description"=>"Obtener la lista de data extensions segun la cuenta","request" => array("method"=>"GET","Content-Type"=>"application/json")),
-        array("endpoint"=>"/dtExtensions/{customerKey}","operaciones"=>"operaciones permitidas  'equals, IN' ","description"=>"obtener la lista de rows de una DT segun los campos pasados","request" => array("method"=>"GET","Content-Type"=>"application/json"))
+        array("endpoint"=>"/dtExtensions/{customerKey}","operaciones"=>"operaciones permitidas  'equals, IN' en parametro 'q' ex: q=<campo>,<operación>,<valor> para hacer un filtrado mas específico ","description"=>"obtener la lista de rows de una DT segun los campos pasados","request" => array("method"=>"GET","Content-Type"=>"application/json")),
+        array("endpoint"=>"/dtExtensions/{customerKey}","description"=>"Post o put de los campos enviados (se agrega o se actualiza un row en la DT)","request" => array("method"=>"POST","params" => array("field"=> "valueField","field1"=> "valueField1", "field(n)"=> "valueField(n)"), "Content-Type"=>"application/json"))
     );
     $payload = json_encode($methods);
     $response->getBody()->write($payload);        
@@ -212,6 +213,50 @@ $app->group('/dtExtensions', function (Group $group) {
             $response->getBody()->write($payload);        
             return $response->withHeader('Content-Type', 'application/json'); 
         }               
+    });
+    $group->post('/{customerkey}', function ($request, $response){
+        $routeContext = RouteContext::fromRequest($request);
+        $route = $routeContext->getRoute();
+        $cKey = $route->getArgument('customerkey');
+        $contents = json_decode(file_get_contents('php://input'), true);
+        $params = (array)$contents;
+
+        if(count($params) == 0){
+            $payload = json_encode(array("errorCode" => -1, "errorDescription" => "There are no parameters"));        
+            $response->getBody()->write($payload);        
+            return $response->withHeader('Content-Type', 'application/json');
+        }
+
+        $fields = array();
+        foreach ($params as $key => $value) {
+            array_push($fields, $key);
+        }
+        $myclient = new ET_Client(true);
+        $DT = new ET_DataExtension_Row();
+        $DT->authStub = $myclient;
+        $DT->props =  $fields;
+        $DT->CustomerKey = $cKey;
+        $DT->props = $params;
+        $respuesta = $DT->post();
+
+        $campoActualizado = false; 
+
+        $dtPOST = checkMethod($respuesta);
+        if($dtPOST["errorCode"] == 0){
+            $payload = json_encode(array_merge($dtPOST,array("actualizado"=>false)));
+            $response->getBody()->write($payload);       
+            return $response->withHeader('Content-Type', 'application/json');
+        } else if($dtPOST["errorCode"] == -2){
+            $respuesta = $DT->patch();
+            $dtPATCH = checkMethod($respuesta);
+            $payload = json_encode(array_merge($dtPATCH,array("actualizado"=>true)));
+            $response->getBody()->write($payload);       
+            return $response->withHeader('Content-Type', 'application/json');
+        } else{
+            $payload = json_encode($dtPOST);
+            $response->getBody()->write($payload);       
+            return $response->withHeader('Content-Type', 'application/json');    
+        }
     });
 });
 
@@ -431,6 +476,20 @@ $app->group('/publicationLists', function (Group $group) {
         return $response->withHeader('Content-Type', 'application/json');
     });
 });
+
+function checkMethod($response){
+    $respuesta = array();
+    if($response->status == "true" || $response->status == true){
+            $respuesta =  array("errorCode" => 0,"response" => $response->results[0]->StatusMessage,"data" => $response);         
+    }else{
+        if($response->results[0]->ErrorCode == 2){
+            $respuesta = array("errorCode" => -2,"errorDescription" => $response->results[0]->ErrorMessage);            
+        } else{
+            $respuesta = array("errorCode" => -1,"errorDescription" => $response->results[0]->ErrorMessage, "response" => $response);
+        }
+    }
+    return $respuesta;
+}
 
 
 

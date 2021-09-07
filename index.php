@@ -5,6 +5,7 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\Interfaces\RouteCollectorProxyInterface as Group;
 use Slim\Factory\AppFactory;
 use Slim\Routing\RouteContext;
+use Slim\Psr7\Factory\StreamFactory;
 use FuelSdk\ET_Client;
 use FuelSdk\ET_List_Subscriber;
 use FuelSdk\ET_List;
@@ -48,6 +49,50 @@ $errorMiddleware->setErrorHandler(
  * Se agrega el middleware para el control de errores
  * [FINAL]
  */
+
+$app->add(function ($request, $handler) {
+    $response = $handler->handle($request);
+
+    // $http_origin = $_SERVER['HTTP_ORIGIN'];
+    $http_origin = $_SERVER;
+    var_dump($request);
+    echo "<br>";
+    
+    return $response
+    ->withHeader("Access-Control-Allow-Origin","*")
+    ->withHeader('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Accept, Origin, Authorization')
+    ->withHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+
+    // if ($http_origin == "http://localhost:3000")
+    // {  
+    //     return $response
+    //     ->withHeader('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Accept, Origin, Authorization')
+    //     ->withHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS')
+    //     ->withHeader("Access-Control-Allow-Origin",$http_origin);
+    //     // header("Access-Control-Allow-Origin: $http_origin");
+    // }else{
+    //     //return $response->withStatus(404);
+    //     return $response
+    //     ->withHeader('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Accept, Origin, Authorization')
+    //     ->withHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS')
+    //     ->withHeader("Access-Control-Allow-Origin",$http_origin)
+    //     ->withStatus(401);
+    // }
+    // return $response
+    // ->withHeader("Access-Control-Allow-Origin","*")
+    // ->withHeader('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Accept, Origin, Authorization')
+    // ->withHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+
+});
+
+// $app->add(function ($request, $handler) {
+//     $response = $handler->handle($request);
+//     return $response
+//             ->withHeader('Access-Control-Allow-Origin', '*')
+//             ->withHeader('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Accept, Origin, Authorization')
+//             ->withHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+// });
+
 
 
 $app->get('/', function (Request $request, Response $response, $args) {
@@ -316,8 +361,6 @@ $app->group('/subscribers', function (Group $group) {
 });
 
 
-
-
 $app->group('/publicationLists', function (Group $group) {
     $group->post('', function ($request, $response){
         $contents = json_decode(file_get_contents('php://input'), true);
@@ -475,7 +518,11 @@ $app->group('/publicationLists', function (Group $group) {
         $response->getBody()->write($payload);        
         return $response->withHeader('Content-Type', 'application/json');
     });
+    
 });
+include "apiCRM.php";
+
+
 
 function checkMethod($response){
     $respuesta = array();

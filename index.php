@@ -55,8 +55,8 @@ $app->add(function ($request, $handler) {
 
     // $http_origin = $_SERVER['HTTP_ORIGIN'];
     $http_origin = $_SERVER;
-    var_dump($request);
-    echo "<br>";
+    // var_dump($request);
+    // echo "<br>";
     
     return $response
     ->withHeader("Access-Control-Allow-Origin","*")

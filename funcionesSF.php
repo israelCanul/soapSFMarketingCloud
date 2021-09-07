@@ -169,8 +169,7 @@ function EmailDefinitions($keyDefinition, $name, $customerKey, $list, $dt){
             )
         );
         $data_string = json_encode($data);   
-        $ch = curl_init($objToken['token']["rest_instance_url"].'/data/v1/async/dataextensions/key:'.$dtKey.'/rows');  
-                                                                              
+        $ch = curl_init($objToken['token']["rest_instance_url"].'/data/v1/async/dataextensions/key:'.$dtKey.'/rows');                                                                              
         curl_setopt ($ch, CURLOPT_SSL_VERIFYPEER, false); 
         curl_setopt ($ch, CURLOPT_SSLVERSION, 6);
         curl_setopt ($ch, CURLOPT_POSTFIELDS, $data_string);
@@ -216,11 +215,6 @@ function EmailDefinitions($keyDefinition, $name, $customerKey, $list, $dt){
         $resultLogin = array("code"=>-1,"codeDesc"=>"Error en token");
     }
     
-    // echo "<pre>";
-    // var_dump($resultLogin);
-    // // var_dump($contact);
-    // echo "</pre>";
-    // exit(0);
     return $resultLogin;
   }
 

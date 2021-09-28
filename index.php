@@ -36,15 +36,13 @@ $errorMiddleware->setErrorHandler(
 
         return $response->withStatus(404);
     });
-$errorMiddleware->setErrorHandler(
-    HttpMethodNotAllowedException::class,
-    function (ServerRequestInterface $request, Throwable $exception, bool $displayErrorDetails) {
-    
-        $response = new Response();
-        $response->getBody()->write('405 NOT ALLOWED');
-
-        return $response->withStatus(405);
-    });
+// $errorMiddleware->setErrorHandler(
+//     HttpMethodNotAllowedException::class,
+//     function (ServerRequestInterface $request, Throwable $exception, bool $displayErrorDetails) {
+//         $response = new Response();
+//         $response->getBody()->write('405 NOT ALLOWED');
+//         return $response->withStatus(405);
+//     });
 /**
  * Se agrega el middleware para el control de errores
  * [FINAL]
@@ -52,46 +50,11 @@ $errorMiddleware->setErrorHandler(
 
 $app->add(function ($request, $handler) {
     $response = $handler->handle($request);
-
-    // $http_origin = $_SERVER['HTTP_ORIGIN'];
-    $http_origin = $_SERVER;
-    // var_dump($request);
-    // echo "<br>";
-    
     return $response
-    ->withHeader("Access-Control-Allow-Origin","*")
-    ->withHeader('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Accept, Origin, Authorization')
-    ->withHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-
-    // if ($http_origin == "http://localhost:3000")
-    // {  
-    //     return $response
-    //     ->withHeader('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Accept, Origin, Authorization')
-    //     ->withHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS')
-    //     ->withHeader("Access-Control-Allow-Origin",$http_origin);
-    //     // header("Access-Control-Allow-Origin: $http_origin");
-    // }else{
-    //     //return $response->withStatus(404);
-    //     return $response
-    //     ->withHeader('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Accept, Origin, Authorization')
-    //     ->withHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS')
-    //     ->withHeader("Access-Control-Allow-Origin",$http_origin)
-    //     ->withStatus(401);
-    // }
-    // return $response
-    // ->withHeader("Access-Control-Allow-Origin","*")
-    // ->withHeader('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Accept, Origin, Authorization')
-    // ->withHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-
+            ->withHeader('Access-Control-Allow-Origin','*')
+            ->withHeader('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Accept, Origin, Authorization')
+            ->withHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
 });
-
-// $app->add(function ($request, $handler) {
-//     $response = $handler->handle($request);
-//     return $response
-//             ->withHeader('Access-Control-Allow-Origin', '*')
-//             ->withHeader('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Accept, Origin, Authorization')
-//             ->withHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-// });
 
 
 
@@ -105,7 +68,20 @@ $app->get('/', function (Request $request, Response $response, $args) {
         array("endpoint"=>"/emails/sendMessage","description"=>"Send a Transactional Message","request" => array("method"=>"POST","Content-Type"=>"application/json","params" => array("messageKey [Type: string]"=>"JHGAJDA","keyDefinition [Type: string]"=>"APIHooktourEliteMessage","contactKey [Type: string]"=>"Unique identifier for a subscriber in Marketing Cloud [Example] icanul@royalresorts.com","to [Type: string]"=> "icanul@royalresorts.com","vars [Type: Object]"=>array("fname [example]"=> "iran","lname [example]"=> "canul","certificateID [example]"=> "CERTIFICATE","purchasedate [example]" => "5/12/2021 12:00:00 AM")))),
         array("endpoint"=>"/dtExtensions","description"=>"Obtener la lista de data extensions segun la cuenta","request" => array("method"=>"GET","Content-Type"=>"application/json")),
         array("endpoint"=>"/dtExtensions/{customerKey}","operaciones"=>"operaciones permitidas  'equals, IN' en parametro 'q' ex: q=<campo>,<operación>,<valor> para hacer un filtrado mas específico ","description"=>"obtener la lista de rows de una DT segun los campos pasados","request" => array("method"=>"GET","Content-Type"=>"application/json")),
-        array("endpoint"=>"/dtExtensions/{customerKey}","description"=>"Post o put de los campos enviados (se agrega o se actualiza un row en la DT)","request" => array("method"=>"POST","params" => array("field"=> "valueField","field1"=> "valueField1", "field(n)"=> "valueField(n)"), "Content-Type"=>"application/json"))
+        array("endpoint"=>"/dtExtensions/{customerKey}","description"=>"Post o put de los campos enviados (se agrega o se actualiza un row en la DT)","request" => array("method"=>"POST","params" => array("field"=> "valueField","field1"=> "valueField1", "field(n)"=> "valueField(n)"), "Content-Type"=>"application/json")),
+        array("endpoint"=>"/CRM//setPreferences","description"=>"Se agregan preferencias a una cuenta","request" => array("method"=>"POST","params" => array("RRC_Account__c"=>"Account Id [String]", "RRC_PreferenceType__c"=> "Prefered Type [STring]","records" => "array of 'RRC_Preference__c' [{'RRC_Preference__c': preference [String]}]"), "Content-Type"=>"application/json"))
+        
+        // {
+        //     "RRC_Account__c": "001S000001CXB9iIAH",
+        //     "RRC_PreferenceType__c": "INTERE",
+        //     "records":[{
+        //         "RRC_Preference__c": "Boating"
+        //         },{
+        //         "RRC_Preference__c": "Spa"
+        //     },{
+        //         "RRC_Preference__c": "Shopping"
+        //     }]
+        // }
     );
     $payload = json_encode($methods);
     $response->getBody()->write($payload);        
@@ -211,6 +187,7 @@ $app->group('/dtExtensions', function (Group $group) {
         $cKey = $route->getArgument('customerkey');
         $fields = $_GET["fields"];
         $query = $_GET["q"];
+        $query2 = $_GET["q2"];
         if($cKey == null){
             $payload = json_encode(array("errorCode" => -1, "data" => $cKey, "errorDescription" => "This Endpoint only works with a customer key valid"));        
             $response->getBody()->write($payload);        
@@ -236,7 +213,18 @@ $app->group('/dtExtensions', function (Group $group) {
                 }
                 $DT->filter = array("Property"=>$query[0], "SimpleOperator"=>$query[1],"Value"=>$query[2]);
             }
-        }        
+        }   
+        if($query2 !== null && $query !== ""){
+            $query2 = explode(",", $query2);
+            if($query2[1] != "equals" && $query2[1] != "IN"){
+                $payload = json_encode(array("errorCode" => -1, "CustomerKey" => $cKey, "errorDescription" => "Operation not allowed ".$query2[1]));        
+                $response->getBody()->write($payload);        
+                return $response->withHeader('Content-Type', 'application/json');
+            }
+            $left = array("Property"=>$query[0], "SimpleOperator"=>$query[1],"Value"=>$query[2]);
+            $right = array("Property"=>$query2[0], "SimpleOperator"=>$query2[1],"Value"=>$query2[2]);
+            $DT->filter = array("LeftOperand"=>$left, "LogicalOperator"=>"AND","RightOperand"=>$right);
+        }
         $respuesta = $DT->get();
 
         if($respuesta->status == "true" || $respuesta->status == true){
@@ -266,6 +254,9 @@ $app->group('/dtExtensions', function (Group $group) {
         $contents = json_decode(file_get_contents('php://input'), true);
         $params = (array)$contents;
 
+        // $payload = json_encode(array("errorCode" => -1, "errorDescription" => $params));        
+        // $response->getBody()->write($payload);        
+        // return $response->withHeader('Content-Type', 'application/json');
         if(count($params) == 0){
             $payload = json_encode(array("errorCode" => -1, "errorDescription" => "There are no parameters"));        
             $response->getBody()->write($payload);        
@@ -300,7 +291,7 @@ $app->group('/dtExtensions', function (Group $group) {
         } else{
             $payload = json_encode($dtPOST);
             $response->getBody()->write($payload);       
-            return $response->withHeader('Content-Type', 'application/json');    
+            return $response->withHeader('Content-Type', 'application/json');
         }
     });
 });

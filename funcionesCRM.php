@@ -35,7 +35,7 @@ function makeQuery($query, $token){
         $resultQuery = curl_exec($ch);
         $resultQuery = (Array) json_decode($resultQuery);
         // $resultQuery = array("echo" => $query);
-        $responseQuery = array_merge($resultQuery, $objToken);        
+        $responseQuery = array_merge($resultQuery);        
         return $resultQuery;
     // }else{
     //     return $objToken;
@@ -180,5 +180,109 @@ function getCustomTokenCRM($userCustom,$passwordCustom){
     }
     return $resultLogin; 
 }
+
+
+  /**
+ * @desc    Do a DELETE of lists of preferences and insert new ones
+ *
+ * @param   string $params  array of data to be used en this function
+ * @param   array  $token  this param is used to get authorization to use the Salesforce API 
+ * 
+ */
+function makeMultipleDeletesForPreferences($params, $token){
+    include "credencialesSF.php";
+    //array of ids to be deleted
+    $idsToDelete = array(); 
+    $account = ""; 
+    if(isset($params["PersonContactId"])){
+        $ch = curl_init($instance_url."/services/data/v51.0/query?q=".urlencode("SELECT Id FROM Account WHERE PersonContactId= '".$params["PersonContactId"]."' "));
+        curl_setopt ($ch, CURLOPT_SSL_VERIFYPEER, false); 
+        curl_setopt ($ch, CURLOPT_SSLVERSION, 6);
+        curl_setopt ($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt ($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json','Authorization:'.$token[0]));
+        $resultGetAccount = curl_exec($ch);
+        $resultGetAccount = (Array) json_decode($resultGetAccount);        
+        if(!isset($resultGetAccount["done"]) ){
+            $responseGetAccount = array("code"=>-1, "Error"=> $resultGetAccount[0]->message);
+            return $responseGetAccount;
+        }
+        $account = $resultGetAccount["records"][0]->Id;
+    }
+
+    //get the array of preferences by account id [INICIO]
+    if(isset($params["RRC_Account__c"])){
+        $account = $params["RRC_Account__c"];       
+    }
+    $ch = curl_init($instance_url."/services/data/v51.0/query?q=".urlencode("SELECT Id,RRC_Account__c,RRC_PreferenceType__c,RRC_Preference__c FROM RRC_Preference__c WHERE RRC_Account__c= '".$account."' AND RRC_PreferenceType__c= '".$params["RRC_PreferenceType__c"]."'"));
+    curl_setopt ($ch, CURLOPT_SSL_VERIFYPEER, false); 
+    curl_setopt ($ch, CURLOPT_SSLVERSION, 6);
+    curl_setopt ($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt ($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json','Authorization:'.$token[0]));
+
+    $resultQuery = curl_exec($ch);
+    $resultQuery = (Array) json_decode($resultQuery);
+    $responseQuery = array_merge($resultQuery);
+    foreach ((array) $responseQuery["records"] as $key => $value) {
+       
+        array_push($idsToDelete,$value->Id);
+    }
+    //delete objects [INICIO]
+    $resultDelete = "There aren´t records to this Account";
+    if(count($idsToDelete) > 0){
+        $stringOfIds = implode(",",$idsToDelete);
+        curl_init();
+        curl_setopt($ch, CURLOPT_URL, $instance_url."/services/data/v51.0/composite/sobjects?ids=".$stringOfIds);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "DELETE");
+        curl_setopt ($ch, CURLOPT_SSLVERSION, 6);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt ($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json','Authorization:'.$token[0]));
+        $resultDelete = curl_exec($ch);
+        $resultDelete = (Array) json_decode($resultDelete);
+    }
+    //delete objects [FINAL]
+
+    //adding the new ones [INICIO]
+    $recordsToAdd = array();
+    foreach ($params["records"]  as $key => $value) {
+        // $params["records"]
+        array_push(
+                $recordsToAdd, 
+                array(
+                "attributes" => array("type" => "RRC_Preference__c", "referenceId" => "ref".$key),    
+                "RRC_Preference__c" => $value["RRC_Preference__c"],
+                "RRC_Account__c" => $account,
+                "RRC_PreferenceType__c" => $params["RRC_PreferenceType__c"]
+                )
+            );
+    }
+
+    $data_string = json_encode(array("records"=>$recordsToAdd)); 
+
+    $ch = curl_init($instance_url."/services/data/v52.0/composite/tree/RRC_Preference__c");
+    curl_setopt ($ch, CURLOPT_SSL_VERIFYPEER, false); 
+    curl_setopt ($ch, CURLOPT_SSLVERSION, 6);
+    curl_setopt ($ch, CURLOPT_POSTFIELDS, $data_string);
+    curl_setopt ($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt ($ch, CURLOPT_POST, true);
+    curl_setopt ($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json','Authorization:'.$token[0]));
+    $resultPostNewObjects = curl_exec($ch);
+    $resultPostNewObjects = (Array) json_decode($resultPostNewObjects); 
+    //adding the new ones [FINAL]
+
+    if(isset($resultPostNewObjects["hasErrors"])){
+        if($resultPostNewObjects["hasErrors"] == false){
+            $resultLogin = array("code"=>0, "IDsDeleted"=> $idsToDelete,"idsDeleted" => $resultDelete,"added" => $resultPostNewObjects);
+        }else{
+            $resultLogin = array("code"=>-1,"idsDeleted" => $resultDelete, "Error"=> $resultPostNewObjects["results"][0]->errors[0]->message);
+        }        
+    }else{
+        $resultLogin = array("code"=>-2, "Error"=> $resultPostNewObjects);
+    }
+    
+    // $resultLogin = array("code"=>0,  "response" => $resultQuery);
+    return  $resultLogin;
+} 
+
+
 
 ?>

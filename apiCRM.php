@@ -56,6 +56,56 @@ $app->group('/CRM', function (Group $group) {
     });
 
 
+    // SELECT Id,RRC_Date__c,RRC_MaxAppointments__c,RRC_Remaining_appointments__c,RRC_SalesRoom__c,RRC_Time__c,RRC_TotalAppointments__c,RRC_WaveDescription__c,RRC_Wave__c FROM RRC_Wave__c WHERE RRC_MaxAppointments__c > 0 AND RRC_Remaining_appointments__c >= 1 AND RRC_Date__c > 2019-11-24 AND RRC_Date__c < 2019-11-27
+    $group->post('/getWaves', function ($request, $response, $args){
+        $contents = json_decode(file_get_contents('php://input'), true);
+        $params = (array)$contents;        
+
+        if(isset($params["checkIn"]) && isset($params["checkOut"]) && isset($params["resort"])){
+            $query = $params;
+            $checkIN = $query["checkIn"];
+            $checkOut = $query["checkOut"];
+            $resort = $query["resort"];            
+            $query = "SELECT Id,RRC_Date__c,RRC_MaxAppointments__c,RRC_Remaining_appointments__c,RRC_SalesRoom__c,RRC_Time__c,RRC_TotalAppointments__c,RRC_WaveDescription__c,RRC_Wave__c FROM RRC_Wave__c WHERE RRC_MaxAppointments__c > 0 AND RRC_Remaining_appointments__c >= 1 AND RRC_Date__c > $checkIN AND RRC_Date__c < $checkOut  AND RRC_SalesRoom__c = '$resort'";
+
+            $makeQuery = makeQuery(urlencode($query),$request->getHeaders()["Authorization"]);
+            $payload = json_encode($makeQuery);
+
+            if(isset($makeQuery["done"])){
+                $payload = json_encode(array("code" => 0,"data" => $makeQuery));
+            }else{
+                $payload = json_encode(array("code" => -1,"data" => $makeQuery));
+            }
+        }else{
+            $payload = json_encode(array("code" => -1, "errorDescription" =>"there are no parameters to try to get"));
+        }
+        $response->getBody()->write($payload);        
+        return $response->withHeader('Content-Type', 'application/json');
+    })->add($mw);
+
+
+    $group->post('/setPreferences', function ($request, $response, $args){
+        $contents = json_decode(file_get_contents('php://input'), true);
+        $params = (array)$contents;        
+        if($params === null || ( !isset($params["RRC_Account__c"]) && !isset($params["PersonContactId"])) ||  !isset($params["RRC_PreferenceType__c"]) || !isset($params["records"])){
+            $payload = json_encode(array("code" => -1, "errorDescription" =>"there are no parameters"));
+            $response->getBody()->write($payload);        
+            return $response->withHeader('Content-Type', 'application/json');
+        }
+        if(count($params) > 0){
+            $prueba = makeMultipleDeletesForPreferences($params,$request->getHeaders()["Authorization"]);
+            $payload = json_encode($prueba); 
+        }else{
+            $payload = json_encode(array("code" => -1, "errorDescription" =>"there are no parameters to try to get"));
+        }
+        $response->getBody()->write($payload);        
+        return $response->withHeader('Content-Type', 'application/json');
+    })->add($mw);
+
+
+
+
+
 
     $group->get('/pruebaToken', function ($request, $response, $args){
         $contents = json_decode(file_get_contents('php://input'), true);
@@ -69,9 +119,14 @@ $app->group('/CRM', function (Group $group) {
         $contents = json_decode(file_get_contents('php://input'), true);
         $params = (array)$contents;
         if(isset($params["user"]) && isset($params["password"])){
-            $payload = json_encode(getCustomTokenCRM($params["user"],$params["password"]));
+            $token = getCustomTokenCRM($params["user"],$params["password"]);
+            if($token["code"] === 0){
+                $payload = json_encode(array("code" => 0,"token" => $token));
+            }else{
+                $payload = json_encode(array("code" => $token["code"],"token" => $token["codeDesc"]));
+            }
         } else{
-            $payload = json_encode(array("errorCode" => -1, "errorDescription" =>"Missing params ['user' or 'password']"));
+            $payload = json_encode(array("code" => -1, "errorDescription" =>"Missing params ['user' or 'password']"));
         }
         $response->getBody()->write($payload);        
         return $response->withHeader('Content-Type', 'application/json');
@@ -165,6 +220,12 @@ $app->group('/CRM', function (Group $group) {
         $sObject = $route->getArgument('sobject');
         $sObjectId = $route->getArgument('id');
        
+        if(!isset($request->getHeaders()["Authorization"])){
+            $payload = json_encode(array("code" => -1,"data" => "There is no Authorizationssss"));
+            $response->getBody()->write($payload); 
+            return $response->withHeader('Content-Type', 'application/json');
+        }
+
         if (in_array(ucfirst($sObject), getOjsBlocked())) {
             $payload = json_encode(array("code" => -1,"data" => "The ".ucfirst($sObject)." table is not able to be modified"));
             $response->getBody()->write($payload); 
